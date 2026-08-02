@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pacman AI - Web View v2</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 0;
+        }
+        h1 { margin-bottom: 20px; }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas {
+            border: 4px solid #334155;
+            background-color: black;
+            border-radius: 8px;
+        }
+        #score-board {
+            margin-top: 20px;
+            font-size: 24px;
+        }
+        #controls {
+            margin-top: 20px;
+        }
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background-color: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>Pacman AI Agent</h1>
+    
+    <div id="controls">
+        <button id="btn-train-start">Start Training</button>
+        <button id="btn-play-game" style="background-color: #10b981;">Play Game</button>
+        <button id="btn-train-stop" style="background-color: #ef4444;">Stop Process</button>
+    </div>
+    
+    <div id="stats-panel" style="margin-top: 15px; font-family: monospace; text-align: left; background: #1e293b; padding: 10px; border-radius: 5px; width: 840px;">
+        <h3>Training Stats</h3>
+        <div>Episode: <span id="stat-ep">0</span></div>
+        <div>Epsilon: <span id="stat-eps">0.00</span></div>
+        <div>Last Score: <span id="stat-score">0</span></div>
+        <div id="status" style="margin-top: 10px; color: #fbbf24;">Status: Connecting...</div>
+    </div>
+    
+    <div id="logs" style="width: 840px; height: 100px; overflow-y: scroll; background: #333; color: #ccc; font-family: monospace; font-size: 12px; margin-top: 10px; padding: 5px;"></div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="840" height="930"></canvas>
+    </div>
+    <div id="score-board">Score: <span id="score">0</span></div>
+    
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>
