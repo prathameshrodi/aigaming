@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PAC-MAN 2D // Dynamic Maze AI & Human Demonstration Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --arcade-black: #000000;
+      --pac-blue: #2121ff;
+      --pac-blue-wall: #1a1aff;
+      --pac-blue-border: #4f4fff;
+      --pac-blue-glow: rgba(33, 33, 255, 0.6);
+      --pac-yellow: #ffff00;
+      --pac-yellow-glow: rgba(255, 255, 0, 0.5);
+      --blinky-red: #ff0000;
+      --blinky-red-glow: rgba(255, 0, 0, 0.6);
+      --pellet-color: #ffb8ae;
+      --pellet-glow: rgba(255, 184, 174, 0.7);
+      --arcade-white: #dedeff;
+      --arcade-green: #00ff00;
+      --tile-bg: #000008;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--arcade-black);
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(10, 10, 35, 0.8) 0%, #000000 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.5) 2px, rgba(0, 0, 0, 0.5) 4px);
+      color: var(--arcade-white);
+      font-family: 'Press Start 2P', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 14px;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: " ";
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%),
+                  radial-gradient(ellipse at center, transparent 65%, rgba(0, 0, 0, 0.85) 100%);
+      background-size: 100% 4px, 100% 100%;
+      z-index: 99;
+      pointer-events: none;
+    }
+
+    .crt-screen {
+      width: 100%;
+      max-width: 1080px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      margin-bottom: 12px;
+      background: #020210;
+      border: 3px solid var(--pac-blue);
+      border-radius: 8px;
+      box-shadow: 0 0 15px var(--pac-blue-glow);
+    }
+
+    .brand-title h1 {
+      font-size: 1.25rem;
+      color: var(--pac-yellow);
+      letter-spacing: 2px;
+      text-shadow: 2px 2px #000, 0 0 12px var(--pac-yellow);
+    }
+
+    .score-banner {
+      display: flex;
+      gap: 24px;
+      font-size: 0.65rem;
+    }
+
+    .score-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .score-label {
+      color: #ff3333;
+      letter-spacing: 1px;
+    }
+
+    .score-number {
+      color: #ffffff;
+      font-size: 0.8rem;
+    }
+
+    .app-container {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .app-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .cabinet-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #030312;
+      border: 4px solid var(--pac-blue);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 0 25px var(--pac-blue-glow);
+      position: relative;
+    }
+
+    .status-banner {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 0.58rem;
+      letter-spacing: 1px;
+      background: rgba(33, 33, 255, 0.15);
+      border: 2px solid var(--pac-blue);
+      color: #8be9fd;
+    }
+
+    .maze-morph-flash {
+      animation: mazeMorph 0.7s ease-out;
+    }
+
+    @keyframes mazeMorph {
+      0% { filter: brightness(2.5) hue-rotate(90deg); transform: scale(0.98); }
+      50% { filter: brightness(1.8) hue-rotate(-45deg); transform: scale(1.02); }
+      100% { filter: brightness(1) hue-rotate(0deg); transform: scale(1); }
+    }
+
+    .grid-wrapper {
+      position: relative;
+      padding: 10px;
+      background: #000000;
+      border: 4px solid var(--pac-blue);
+      border-radius: 8px;
+      box-shadow: 0 0 18px var(--pac-blue-glow);
+      transition: all 0.3s ease;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      gap: 3px;
+      width: 460px;
+      height: 460px;
+      background: #000;
+    }
+
+    @media (max-width: 520px) {
+      #grid {
+        width: 310px;
+        height: 310px;
+        gap: 2px;
+      }
+    }
+
+    .cell {
+      background: var(--tile-bg);
+      border: 1px solid rgba(33, 33, 255, 0.18);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .cell::before {
+      content: '';
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background-color: rgba(255, 184, 174, 0.25);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* Maze Walls */
+    .cell.wall {
+      background: #06062b !important;
+      border: 2px solid var(--pac-blue-border) !important;
+      box-shadow: inset 0 0 8px #000, 0 0 4px var(--pac-blue-glow);
+      animation: wallSpawn 0.3s ease-out;
+    }
+    @keyframes wallSpawn {
+      0% { transform: scale(0.6); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .cell.wall::before { display: none; }
+
+    .entity {
+      width: 86%;
+      height: 86%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 5;
+    }
+
+    /* Pac-Man */
+    .player-pacman {
+      width: 90%;
+      height: 90%;
+      position: relative;
+      filter: drop-shadow(0 0 6px var(--pac-yellow-glow));
+      transition: transform 0.12s linear;
+    }
+
+    .pacman-body {
+      width: 100%;
+      height: 100%;
+      background: var(--pac-yellow);
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .pacman-mouth {
+      width: 100%;
+      height: 100%;
+      background: var(--pac-yellow);
+      border-radius: 50%;
+      clip-path: polygon(100% 0%, 50% 50%, 100% 100%, 0% 100%, 0% 0%);
+      animation: chomp 0.25s infinite alternate ease-in-out;
+    }
+
+    @keyframes chomp {
+      0% { clip-path: polygon(100% 0%, 50% 50%, 100% 100%, 0% 100%, 0% 0%); }
+      100% { clip-path: polygon(100% 38%, 50% 50%, 100% 62%, 0% 100%, 0% 0%); }
+    }
+
+    .facing-right { transform: rotate(0deg); }
+    .facing-left  { transform: rotate(180deg); }
+    .facing-up    { transform: rotate(270deg); }
+    .facing-down  { transform: rotate(90deg); }
+
+    /* Blinky Ghost */
+    .anomaly-ghost {
+      width: 90%;
+      height: 90%;
+      position: relative;
+      animation: ghostHover 0.6s infinite alternate ease-in-out;
+      filter: drop-shadow(0 0 8px var(--blinky-red-glow));
+    }
+
+    @keyframes ghostHover {
+      0% { transform: translateY(-1px); }
+      100% { transform: translateY(1px); }
+    }
+
+    .ghost-svg { width: 100%; height: 100%; }
+
+    /* Target Pellet */
+    .core-pellet {
+      width: 62%;
+      height: 62%;
+      background-color: var(--pellet-color);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--pellet-glow), 0 0 20px #ffffff;
+      animation: energizerPulse 0.4s infinite alternate;
+    }
+
+    @keyframes energizerPulse {
+      0% { transform: scale(0.75); opacity: 0.6; box-shadow: 0 0 6px var(--pellet-glow); }
+      100% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 18px var(--pellet-color), 0 0 28px #ffffff; }
+    }
+
+    /* 4-Way D-Pad */
+    .dpad-container {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 54px);
+      grid-template-rows: repeat(3, 54px);
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .dpad-btn {
+      background: #080824;
+      border: 3px solid var(--pac-blue);
+      color: var(--pac-yellow);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px #000;
+      transition: all 0.1s ease;
+    }
+
+    .dpad-btn:hover {
+      background: var(--pac-yellow);
+      color: #000;
+      border-color: #fff;
+      transform: translateY(2px);
+    }
+
+    .dpad-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 0 #000;
+    }
+
+    .btn-up    { grid-column: 2; grid-row: 1; }
+    .btn-left  { grid-column: 1; grid-row: 2; }
+    .btn-stay  { grid-column: 2; grid-row: 2; font-size: 0.52rem; color: #8be9fd; border-color: #8be9fd; }
+    .btn-right { grid-column: 3; grid-row: 2; }
+    .btn-down  { grid-column: 2; grid-row: 3; }
+
+    .arcade-legend {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+      margin-top: 12px;
+      font-size: 0.52rem;
+      color: var(--arcade-white);
+      background: #000;
+      padding: 8px;
+      border: 1px dashed var(--pac-blue);
+      border-radius: 4px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+
+    /* Right Column: Telemetry & Demonstrations */
+    .sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+    .panel-card {
+      background: #020210;
+      border: 3px solid var(--pac-blue);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 0 15px rgba(33, 33, 255, 0.4);
+    }
+
+    .panel-header {
+      font-size: 0.65rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--pac-yellow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px dashed rgba(33, 33, 255, 0.6);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric-box {
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.44rem;
+      color: #8be9fd;
+      text-transform: uppercase;
+      line-height: 1.3;
+    }
+
+    .metric-val {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.72rem;
+      margin-top: 6px;
+      color: #fff;
+    }
+
+    .reward-positive { color: var(--arcade-green) !important; }
+    .reward-negative { color: var(--blinky-red) !important; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #000;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--pac-blue);
+    }
+
+    .toggle-label-title {
+      font-size: 0.58rem;
+      color: var(--pac-yellow);
+      letter-spacing: 1px;
+    }
+
+    .toggle-desc {
+      font-size: 0.44rem;
+      color: #a0a0c0;
+      margin-top: 4px;
+      line-height: 1.3;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #1a1a3a;
+      transition: .2s;
+      border-radius: 4px;
+      border: 2px solid var(--pac-blue);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #888;
+      transition: .2s;
+      border-radius: 2px;
+    }
+
+    input:checked + .slider {
+      background-color: var(--pac-yellow);
+      border-color: #ffffff;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+      background-color: #000000;
+    }
+
+    .sim-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+    .action-btn {
+      flex: 1;
+      padding: 10px 4px;
+      border-radius: 4px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.52rem;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border: 2px solid;
+      transition: all 0.15s ease;
+    }
+
+    .btn-reset {
+      background: #2a0008;
+      border-color: var(--blinky-red);
+      color: #ff9999;
+    }
+    .btn-reset:hover { background: var(--blinky-red); color: #000; }
+
+    .btn-pause {
+      background: #001f2e;
+      border-color: #8be9fd;
+      color: #8be9fd;
+    }
+    .btn-pause:hover { background: #8be9fd; color: #000; }
+
+    /* Dynamic Maze Regenerator Button */
+    .btn-morph-maze {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(157, 78, 221, 0.2);
+      border: 2px solid #a855f7;
+      color: #d8b4fe;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-morph-maze:hover {
+      background: #a855f7;
+      color: #000;
+      box-shadow: 0 0 14px #a855f7;
+    }
+
+    /* Demonstration Recorder Card */
+    .recorder-stats {
+      font-size: 0.52rem;
+      line-height: 1.6;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+    }
+
+    .btn-export-data {
+      width: 100%;
+      padding: 10px 8px;
+      background: rgba(0, 255, 0, 0.15);
+      border: 2px solid var(--arcade-green);
+      color: var(--arcade-green);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.55rem;
+      letter-spacing: 1px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 6px;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+      transition: all 0.15s ease;
+    }
+
+    .btn-export-data:hover {
+      background: var(--arcade-green);
+      color: #000;
+      box-shadow: 0 0 18px var(--arcade-green);
+    }
+
+    .btn-clear-data {
+      width: 100%;
+      padding: 7px;
+      background: transparent;
+      border: 1px dashed #64748b;
+      color: #94a3b8;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.44rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .btn-clear-data:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    .log-stream {
+      background: #000000;
+      border: 2px solid rgba(33, 33, 255, 0.4);
+      border-radius: 4px;
+      height: 120px;
+      overflow-y: auto;
+      padding: 8px;
+      font-family: 'VT323', monospace;
+      font-size: 0.95rem;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 3px;
+      color: #d0d0ff;
+    }
+
+    .log-entry { line-height: 1.3; }
+    .log-step { color: #8be9fd; }
+    .log-ai { color: var(--pac-yellow); }
+    .log-danger { color: #ff3333; }
+    .log-success { color: #00ff00; }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .modal-card {
+      width: 90%;
+      max-width: 440px;
+      background: #000000;
+      border: 4px solid var(--pac-yellow);
+      box-shadow: 0 0 35px var(--pac-yellow-glow);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      color: var(--pac-yellow);
+      margin-bottom: 14px;
+      text-shadow: 2px 2px #ff0000;
+      letter-spacing: 1px;
+    }
+
+    .modal-message {
+      font-size: 0.58rem;
+      color: #c0c0e0;
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .modal-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+      background: #080824;
+      border: 2px dashed var(--pac-blue);
+      padding: 10px;
+    }
+
+    .modal-btn {
+      width: 100%;
+      padding: 14px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 1px;
+      border-radius: 4px;
+      border: 3px solid #ffffff;
+      cursor: pointer;
+      background: var(--pac-yellow);
+      color: #000000;
+      box-shadow: 0 4px #000;
+      transition: all 0.1s ease;
+    }
+
+    .modal-card.failure {
+      border-color: var(--blinky-red);
+      box-shadow: 0 0 35px var(--blinky-red-glow);
+    }
+    .modal-card.failure .modal-title { color: var(--blinky-red); text-shadow: 2px 2px #fff; }
+    .modal-card.failure .modal-btn { background: var(--blinky-red); color: #fff; }
+  </style>
+</head>
+<body>
+
+  <div class="crt-screen">
+    <header>
+      <div class="brand-title">
+        <h1>PAC-MAN 2D</h1>
+      </div>
+      <div class="score-banner">
+        <div class="score-block">
+          <span class="score-label">1UP HIGH</span>
+          <span class="score-number">0100</span>
+        </div>
+        <div class="score-block">
+          <span class="score-label">REWARD</span>
+          <span class="score-number" id="headerReward">0.0</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-container">
+      <section class="cabinet-section">
+        <div class="status-banner">
+          <span>GRID: <span id="mazeLevelDisplay" style="color:var(--pac-yellow);">LAYOUT #1</span></span>
+          <span id="mazeShiftAlert" style="color:var(--arcade-green);">● MORPH ON CLEAR</span>
+        </div>
+
+        <div class="grid-wrapper" id="gridWrapper">
+          <div id="grid"></div>
+        </div>
+
+        <!-- 4-Way D-Pad -->
+        <div class="dpad-container">
+          <button class="dpad-btn btn-up" id="btnUp" title="Up (W / ↑)">▲</button>
+          <button class="dpad-btn btn-left" id="btnLeft" title="Left (A / ←)">◄</button>
+          <button class="dpad-btn btn-stay" id="btnStay" title="Stay (Space)">•</button>
+          <button class="dpad-btn btn-right" id="btnRight" title="Right (D / →)">►</button>
+          <button class="dpad-btn btn-down" id="btnDown" title="Down (S / ↓)">▼</button>
+        </div>
+
+        <div class="arcade-legend">
+          <div class="legend-item"><span style="color:var(--pac-yellow);">●</span><span>PAC-MAN</span></div>
+          <div class="legend-item"><span style="color:var(--pellet-color);">⦿</span><span>TARGET</span></div>
+          <div class="legend-item"><span style="color:var(--blinky-red);">▲</span><span>BLINKY</span></div>
+          <div class="legend-item"><span style="color:var(--pac-blue-border);">■</span><span>WALL</span></div>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+
+        <!-- Dynamic Maze Generation Controls -->
+        <div class="panel-card" style="border-color:#a855f7; box-shadow:0 0 15px rgba(168, 85, 247, 0.3);">
+          <div class="panel-header" style="color:#d8b4fe; border-bottom-color:rgba(168, 85, 247, 0.5);">
+            <span>DYNAMIC MAZE LAB</span>
+            <span id="clearsCount" style="color:var(--arcade-green); font-size:0.5rem;">CLEARS: 0</span>
+          </div>
+          <div style="font-size:0.46rem; color:#cbd5e1; line-height:1.5;">
+            Every successful round generates a completely new randomized wall configuration. The AI immediately recalculates the fastest path.
+          </div>
+          <button class="btn-morph-maze" id="btnMorphNow">🎲 MORPH MAZE NOW</button>
+        </div>
+
+        <!-- Human Demonstration Recording Panel -->
+        <div class="panel-card" style="border-color:var(--arcade-green); box-shadow:0 0 15px rgba(0, 255, 0, 0.25);">
+          <div class="panel-header" style="color:var(--arcade-green); border-bottom-color:rgba(0, 255, 0, 0.5);">
+            <span>HUMAN DATASET</span>
+            <span style="font-size:0.5rem; color:#fff;">DEMO RECORDER</span>
+          </div>
+
+          <div class="recorder-stats">
+            <div>EPISODES LOGGED: <span id="recEpisodes" style="color:var(--arcade-green); font-weight:bold;">0</span></div>
+            <div>TRANSITIONS: <span id="recTransitions" style="color:#8be9fd; font-weight:bold;">0</span></div>
+            <div style="font-size:0.44rem; color:#94a3b8; margin-top:4px;">
+              Every move you make is recorded in memory (state vector + action index).
+            </div>
+          </div>
+
+          <button class="btn-export-data" id="btnExportData">💾 DOWNLOAD DATA FOR AI</button>
+          <button class="btn-clear-data" id="btnClearData">CLEAR RECORDINGS</button>
+        </div>
+
+        <!-- Telemetry -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <span>TELEMETRY</span>
+            <span style="color:var(--arcade-green); font-size:0.55rem;">ACTIVE</span>
+          </div>
+
+          <div class="telemetry-grid">
+            <div class="metric-box">
+              <span class="metric-label">STEP HORIZON</span>
+              <div class="metric-val" id="stepCounter">0 / 60</div>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">NET REWARD</span>
+              <div class="metric-val" id="rewardScore">0.0</div>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">PAC-MAN [X,Y]</span>
+              <div class="metric-val" id="playerCoords">[0, 0]</div>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">TARGET [X,Y]</span>
+              <div class="metric-val" id="targetCoords">[0, 0]</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode Toggle & Controls -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <span>CONTROL MODE</span>
+            <span id="execBadge" style="color:var(--pac-yellow); font-size:0.55rem;">MANUAL</span>
+          </div>
+
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label-title">AUTONOMOUS AI</div>
+              <div class="toggle-desc">Dynamic Pathfinding across changing mazes</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="aiModeToggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="sim-actions">
+            <button class="action-btn btn-pause" id="btnPauseSim">❚❚ PAUSE</button>
+            <button class="action-btn btn-reset" id="btnRestartSim">↺ RESET</button>
+          </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <span>DECISION LOG</span>
+            <span id="soundStatus" style="color:var(--arcade-green); font-size:0.55rem; cursor:pointer;">SFX: ON</span>
+          </div>
+          <div class="log-stream" id="logStream">
+            <div class="log-entry">DYNAMIC MAZE LAB READY // MORPHS ON CLEAR</div>
+          </div>
+        </div>
+
+      </aside>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="outcomeModal">
+    <div class="modal-card" id="modalCard">
+      <h2 class="modal-title" id="modalTitle">GAME OVER</h2>
+      <p class="modal-message" id="modalMessage">PAC-MAN CAUGHT BY BLINKY</p>
+
+      <div class="modal-stats">
+        <div>
+          <div class="metric-label">STEPS</div>
+          <div class="metric-val" id="modalSteps">0</div>
+        </div>
+        <div>
+          <div class="metric-label">REWARD</div>
+          <div class="metric-val" id="modalReward">0.0</div>
+        </div>
+      </div>
+
+      <button class="modal-btn" id="modalRestartBtn">NEXT ROUND (NEW MAZE)</button>
+    </div>
+  </div>
+
+  <script>
+    class SoundFX {
+      constructor() { this.ctx = null; this.enabled = true; }
+      init() {
+        if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+      waka() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        const now = this.ctx.currentTime;
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(540, now + 0.08);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+      fruit() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        [440, 554, 659, 880].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'square';
+          const t = this.ctx.currentTime + (i * 0.06);
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.linearRampToValueAtTime(0.01, t + 0.05);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.05);
+        });
+      }
+      morph() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        const now = this.ctx.currentTime;
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.linearRampToValueAtTime(600, now + 0.2);
+        osc.frequency.linearRampToValueAtTime(300, now + 0.35);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+      death() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        const now = this.ctx.currentTime;
+        osc.frequency.setValueAtTime(500, now);
+        osc.frequency.exponentialRampToValueAtTime(60, now + 0.45);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      }
+    }
+
+    class Pac2DGame {
+      constructor() {
+        this.GRID_WIDTH = 10;
+        this.GRID_HEIGHT = 10;
+        this.MAX_STEPS = 60;
+        this.TICK_INTERVAL_MS = 320;
+
+        this.maze = [];
+        this.mazeLevel = 1;
+        this.totalClears = 0;
+
+        this.player = { x: 0, y: 0 };
+        this.enemy = { x: 0, y: 0 };
+        this.target = { x: 0, y: 0 };
+        this.stepCount = 0;
+        this.cumulativeReward = 0.0;
+        this.isGameOver = false;
+        this.playerFacing = 'facing-right';
+
+        this.isAiMode = false;
+        this.isPaused = false;
+        this.loopTimer = null;
+        this.sfx = new SoundFX();
+
+        this.humanEpisodes = JSON.parse(localStorage.getItem('pac2d_human_episodes') || '[]');
+        this.currentEpisodeBuffer = [];
+
+        this.gridWrapper = document.getElementById('gridWrapper');
+        this.gridEl = document.getElementById('grid');
+        this.stepCounter = document.getElementById('stepCounter');
+        this.rewardScore = document.getElementById('rewardScore');
+        this.headerReward = document.getElementById('headerReward');
+        this.playerCoords = document.getElementById('playerCoords');
+        this.targetCoords = document.getElementById('targetCoords');
+        this.logStream = document.getElementById('logStream');
+        this.aiToggle = document.getElementById('aiModeToggle');
+        this.execBadge = document.getElementById('execBadge');
+        this.btnPause = document.getElementById('btnPauseSim');
+        this.outcomeModal = document.getElementById('outcomeModal');
+        this.modalCard = document.getElementById('modalCard');
+        this.modalTitle = document.getElementById('modalTitle');
+        this.modalMessage = document.getElementById('modalMessage');
+        this.modalSteps = document.getElementById('modalSteps');
+        this.modalReward = document.getElementById('modalReward');
+
+        this.recEpisodes = document.getElementById('recEpisodes');
+        this.recTransitions = document.getElementById('recTransitions');
+        this.mazeLevelDisplay = document.getElementById('mazeLevelDisplay');
+        this.clearsCount = document.getElementById('clearsCount');
+
+        this.generateRandomMaze();
+        this.initGridDOM();
+        this.bindEvents();
+        this.updateRecorderStats();
+        this.resetGame(false);
+      }
+
+      /**
+       * Procedural Maze Generator:
+       * Creates randomized symmetric or organic wall clusters (~18-24 walls)
+       * ensuring wide open navigable corridors between every corner of the 10x10 grid.
+       */
+      generateRandomMaze() {
+        const grid = Array.from({ length: this.GRID_HEIGHT }, () => Array(this.GRID_WIDTH).fill(0));
+
+        // Random pattern seeds: horizontal blocks, central cross, or randomized pillars
+        const patternType = Math.floor(Math.random() * 3);
+
+        if (patternType === 0) {
+          // Classic Pac-Man Block clusters with random gap openings
+          const gap1 = Math.random() > 0.5 ? 2 : 7;
+          const gap2 = Math.random() > 0.5 ? 3 : 6;
+          for (let x = 1; x <= 8; x++) {
+            if (x !== gap1 && x !== gap1 + 1) grid[2][x] = 1;
+            if (x !== gap2 && x !== gap2 + 1) grid[7][x] = 1;
+          }
+          // Inner pillars
+          grid[4][2] = 1; grid[5][2] = 1;
+          grid[4][7] = 1; grid[5][7] = 1;
+          grid[4][4] = 1; grid[4][5] = 1; grid[5][4] = 1; grid[5][5] = 1;
+        } else if (patternType === 1) {
+          // Central Fortress with alternating corridor gates
+          for (let y = 3; y <= 6; y++) {
+            grid[y][2] = 1;
+            grid[y][7] = 1;
+          }
+          for (let x = 3; x <= 6; x++) {
+            if (x !== 4 && x !== 5) {
+              grid[2][x] = 1;
+              grid[7][x] = 1;
+            }
+          }
+          // Floating defense blocks
+          grid[4][4] = 1; grid[5][5] = 1;
+        } else {
+          // Procedural Pillars & Hallways
+          const pillarCols = [1, 3, 6, 8];
+          const pillarRows = [2, 4, 7];
+          pillarRows.forEach(r => {
+            pillarCols.forEach(c => {
+              if (Math.random() > 0.25) {
+                grid[r][c] = 1;
+                if (Math.random() > 0.4 && c + 1 < 9) grid[r][c + 1] = 1;
+              }
+            });
+          });
+        }
+
+        // Ensure perimeter is always open for full wrap-around mobility
+        for (let i = 0; i < 10; i++) {
+          grid[0][i] = 0;
+          grid[9][i] = 0;
+          grid[i][0] = 0;
+          grid[i][9] = 0;
+        }
+
+        this.maze = grid;
+      }
+
+      isWall(x, y) {
+        if (x < 0 || x >= this.GRID_WIDTH || y < 0 || y >= this.GRID_HEIGHT) return true;
+        const row = (this.GRID_HEIGHT - 1) - y;
+        return this.maze[row][x] === 1;
+      }
+
+      getObservation() {
+        return [
+          this.player.x,
+          this.player.y,
+          this.enemy.x,
+          this.enemy.y,
+          this.target.x,
+          this.target.y
+        ];
+      }
+
+      initGridDOM() {
+        this.gridEl.innerHTML = '';
+        this.cells = {};
+
+        for (let y = this.GRID_HEIGHT - 1; y >= 0; y--) {
+          for (let x = 0; x < this.GRID_WIDTH; x++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            if (this.isWall(x, y)) cell.classList.add('wall');
+            this.gridEl.appendChild(cell);
+            this.cells[`${x},${y}`] = cell;
+          }
+        }
+      }
+
+      rebuildMazeVisuals() {
+        this.gridWrapper.classList.remove('maze-morph-flash');
+        void this.gridWrapper.offsetWidth; // Trigger reflow
+        this.gridWrapper.classList.add('maze-morph-flash');
+
+        for (let y = 0; y < this.GRID_HEIGHT; y++) {
+          for (let x = 0; x < this.GRID_WIDTH; x++) {
+            const cell = this.cells[`${x},${y}`];
+            if (cell) {
+              if (this.isWall(x, y)) {
+                cell.classList.add('wall');
+              } else {
+                cell.classList.remove('wall');
+              }
+            }
+          }
+        }
+      }
+
+      resetGame(morphMaze = false) {
+        if (!this.isAiMode && this.currentEpisodeBuffer.length > 0) {
+          this.humanEpisodes.push({
+            outcome: this.isGameOver ? (this.player.x === this.target.x && this.player.y === this.target.y ? 'VICTORY' : 'CAUGHT') : 'RESET',
+            reward: this.cumulativeReward,
+            steps: this.currentEpisodeBuffer
+          });
+          localStorage.setItem('pac2d_human_episodes', JSON.stringify(this.humanEpisodes));
+          this.updateRecorderStats();
+        }
+
+        if (morphMaze) {
+          this.mazeLevel++;
+          this.generateRandomMaze();
+          this.rebuildMazeVisuals();
+          this.sfx.morph();
+          this.mazeLevelDisplay.textContent = `LAYOUT #${this.mazeLevel}`;
+          this.addLog(`⚡ MAZE RECONFIGURED // NEW WALL CONFIGURATION #${this.mazeLevel}`, "log-ai");
+        }
+
+        this.currentEpisodeBuffer = [];
+        this.stepCount = 0;
+        this.cumulativeReward = 0.0;
+        this.isGameOver = false;
+        this.playerFacing = 'facing-right';
+
+        const openCells = [];
+        for (let y = 0; y < this.GRID_HEIGHT; y++) {
+          for (let x = 0; x < this.GRID_WIDTH; x++) {
+            if (!this.isWall(x, y)) openCells.push({ x, y });
+          }
+        }
+
+        for (let i = openCells.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [openCells[i], openCells[j]] = [openCells[j], openCells[i]];
+        }
+
+        this.player = openCells[0];
+        this.enemy = openCells[1];
+        this.target = openCells[2];
+
+        this.hideModal();
+        this.render();
+
+        if (this.isAiMode && !this.isPaused) this.startSimulationLoop();
+      }
+
+      step(action) {
+        if (this.isGameOver) return;
+        this.stepCount++;
+
+        if (!this.isAiMode) {
+          const obsBeforeMove = this.getObservation();
+          this.currentEpisodeBuffer.push({
+            step: this.stepCount,
+            obs: obsBeforeMove,
+            action: action
+          });
+          this.updateRecorderStats();
+        }
+
+        const prevDist = Math.abs(this.player.x - this.target.x) + Math.abs(this.player.y - this.target.y);
+        let actionDesc = "Stay";
+        let nx = this.player.x;
+        let ny = this.player.y;
+        let hitWall = false;
+
+        if (action === 1) { nx--; this.playerFacing = 'facing-left'; actionDesc = "Left"; }
+        else if (action === 2) { nx++; this.playerFacing = 'facing-right'; actionDesc = "Right"; }
+        else if (action === 3) { ny++; this.playerFacing = 'facing-up'; actionDesc = "Up"; }
+        else if (action === 4) { ny--; this.playerFacing = 'facing-down'; actionDesc = "Down"; }
+
+        if (action !== 0) {
+          if (this.isWall(nx, ny)) {
+            hitWall = true;
+          } else {
+            this.player.x = nx;
+            this.player.y = ny;
+            this.sfx.waka();
+          }
+        }
+
+        this.moveEnemy();
+
+        let stepReward = -0.2;
+        const newDist = Math.abs(this.player.x - this.target.x) + Math.abs(this.player.y - this.target.y);
+        const distEnemy = Math.abs(this.player.x - this.enemy.x) + Math.abs(this.player.y - this.enemy.y);
+
+        if (newDist < prevDist) stepReward += 0.5;
+        else if (newDist > prevDist) stepReward -= 0.5;
+
+        if (hitWall) stepReward -= 1.0;
+        if (distEnemy <= 1) stepReward -= 3.0;
+
+        const isCollision = (this.player.x === this.enemy.x && this.player.y === this.enemy.y);
+        const isAcquisition = (this.player.x === this.target.x && this.player.y === this.target.y);
+        const isTimeout = (this.stepCount >= this.MAX_STEPS);
+
+        if (isCollision) {
+          stepReward = -100.0;
+          this.cumulativeReward += stepReward;
+          this.isGameOver = true;
+          this.stopSimulationLoop();
+          this.sfx.death();
+          this.addLog(`STEP ${this.stepCount}: CAUGHT BY BLINKY! [-100]`, "log-danger");
+          this.showModal('failure', 'GAME OVER', 'Pac-Man was caught. Wall layout retained for rematch.', false);
+          this.finalizeEpisode('CAUGHT');
+        } else if (isAcquisition) {
+          stepReward = 100.0;
+          this.cumulativeReward += stepReward;
+          this.isGameOver = true;
+          this.totalClears++;
+          this.clearsCount.textContent = `CLEARS: ${this.totalClears}`;
+          this.stopSimulationLoop();
+          this.sfx.fruit();
+          this.addLog(`🎉 SUCCESS! TARGET SECURED IN ${this.stepCount} STEPS! [+100]`, "log-success");
+
+          // SUCCESSFUL COMPLETION: RECREATE AND MORPH MAZE WALLS!
+          this.showModal('victory', 'TARGET SECURED!', `Fastest path completed in ${this.stepCount} steps. Generating a brand new maze layout!`, true);
+          this.finalizeEpisode('VICTORY');
+
+          // If AI mode is running, automatically proceed to next layout after 1.2s delay
+          if (this.isAiMode) {
+            setTimeout(() => {
+              if (this.isGameOver) this.resetGame(true);
+            }, 1200);
+          }
+        } else if (isTimeout) {
+          stepReward = 0.0;
+          this.cumulativeReward += stepReward;
+          this.isGameOver = true;
+          this.stopSimulationLoop();
+          this.addLog(`STEP ${this.stepCount}: MAX STEPS EXCEEDED`, "log-danger");
+          this.showModal('failure', 'OUT OF TIME', 'Horizon limit reached without finding target.', false);
+          this.finalizeEpisode('TIMEOUT');
+        } else {
+          this.cumulativeReward += stepReward;
+          this.addLog(`STEP ${this.stepCount}: [${actionDesc}] Dist: ${newDist} | Enemy Dist: ${distEnemy}`, "log-step");
+        }
+
+        this.render();
+      }
+
+      finalizeEpisode(outcome) {
+        if (!this.isAiMode && this.currentEpisodeBuffer.length > 0) {
+          this.humanEpisodes.push({
+            outcome: outcome,
+            reward: this.cumulativeReward,
+            steps: this.currentEpisodeBuffer
+          });
+          localStorage.setItem('pac2d_human_episodes', JSON.stringify(this.humanEpisodes));
+          this.currentEpisodeBuffer = [];
+          this.updateRecorderStats();
+        }
+      }
+
+      updateRecorderStats() {
+        const totalEpisodes = this.humanEpisodes.length;
+        let totalTransitions = this.currentEpisodeBuffer.length;
+        for (let ep of this.humanEpisodes) {
+          totalTransitions += ep.steps ? ep.steps.length : 0;
+        }
+        this.recEpisodes.textContent = totalEpisodes;
+        this.recTransitions.textContent = totalTransitions;
+      }
+
+      moveEnemy() {
+        const moves = [
+          { x: this.enemy.x, y: this.enemy.y },
+          { x: this.enemy.x - 1, y: this.enemy.y },
+          { x: this.enemy.x + 1, y: this.enemy.y },
+          { x: this.enemy.x, y: this.enemy.y + 1 },
+          { x: this.enemy.x, y: this.enemy.y - 1 }
+        ];
+
+        let best = { x: this.enemy.x, y: this.enemy.y };
+        let minD = Infinity;
+
+        moves.forEach(m => {
+          if (!this.isWall(m.x, m.y)) {
+            const d = Math.abs(m.x - this.player.x) + Math.abs(m.y - this.player.y);
+            if (d < minD) {
+              minD = d;
+              best = m;
+            }
+          }
+        });
+
+        this.enemy.x = best.x;
+        this.enemy.y = best.y;
+      }
+
+      /**
+       * DYNAMIC BFS FASTEST-PATHFINDING & EVASION:
+       * Dynamically adapts to whichever wall configuration is currently generated.
+       */
+      computeAiAction() {
+        const queue = [{ x: this.player.x, y: this.player.y, path: [] }];
+        const visited = new Set([`${this.player.x},${this.player.y}`]);
+        let shortestPath = null;
+
+        while (queue.length > 0) {
+          const current = queue.shift();
+          if (current.x === this.target.x && current.y === this.target.y) {
+            shortestPath = current.path;
+            break;
+          }
+
+          const neighbors = [
+            { x: current.x, y: current.y + 1, action: 3 },
+            { x: current.x - 1, y: current.y, action: 1 },
+            { x: current.x + 1, y: current.y, action: 2 },
+            { x: current.x, y: current.y - 1, action: 4 },
+          ];
+
+          for (const n of neighbors) {
+            const key = `${n.x},${n.y}`;
+            if (!this.isWall(n.x, n.y) && !visited.has(key)) {
+              visited.add(key);
+              queue.push({
+                x: n.x,
+                y: n.y,
+                path: [...current.path, { action: n.action, x: n.x, y: n.y }]
+              });
+            }
+          }
+        }
+
+        if (shortestPath && shortestPath.length > 0) {
+          const nextMove = shortestPath[0];
+          const distToEnemy = Math.abs(nextMove.x - this.enemy.x) + Math.abs(nextMove.y - this.enemy.y);
+
+          if (distToEnemy <= 1) {
+            const candidateActions = [1, 2, 3, 4, 0];
+            let bestEvasion = 0;
+            let maxSafety = -Infinity;
+
+            candidateActions.forEach(act => {
+              let ex = this.player.x;
+              let ey = this.player.y;
+              if (act === 1) ex--;
+              else if (act === 2) ex++;
+              else if (act === 3) ey++;
+              else if (act === 4) ey--;
+
+              if (!this.isWall(ex, ey) || act === 0) {
+                const edist = Math.abs(ex - this.enemy.x) + Math.abs(ey - this.enemy.y);
+                const tdist = Math.abs(ex - this.target.x) + Math.abs(ey - this.target.y);
+                const score = (edist * 30) - tdist;
+                if (score > maxSafety) {
+                  maxSafety = score;
+                  bestEvasion = act;
+                }
+              }
+            });
+            return bestEvasion;
+          }
+
+          return nextMove.action;
+        }
+
+        return 0;
+      }
+
+      startSimulationLoop() {
+        this.stopSimulationLoop();
+        this.loopTimer = setInterval(() => {
+          if (!this.isPaused && !this.isGameOver) {
+            const action = this.computeAiAction();
+            this.step(action);
+          }
+        }, this.TICK_INTERVAL_MS);
+      }
+
+      stopSimulationLoop() {
+        if (this.loopTimer) {
+          clearInterval(this.loopTimer);
+          this.loopTimer = null;
+        }
+      }
+
+      render() {
+        for (let key in this.cells) {
+          const cell = this.cells[key];
+          const existing = cell.querySelector('.entity');
+          if (existing) cell.removeChild(existing);
+        }
+
+        const targetKey = `${this.target.x},${this.target.y}`;
+        if (this.cells[targetKey]) {
+          const tDiv = document.createElement('div');
+          tDiv.className = 'entity core-pellet';
+          this.cells[targetKey].appendChild(tDiv);
+        }
+
+        const enemyKey = `${this.enemy.x},${this.enemy.y}`;
+        if (this.cells[enemyKey]) {
+          const gDiv = document.createElement('div');
+          gDiv.className = 'entity anomaly-ghost';
+          const ex = (this.player.x > this.enemy.x) ? 2 : (this.player.x < this.enemy.x) ? -2 : 0;
+          const ey = (this.player.y > this.enemy.y) ? -2 : (this.player.y < this.enemy.y) ? 2 : 0;
+          gDiv.innerHTML = `
+            <svg class="ghost-svg" viewBox="0 0 28 28">
+              <path d="M 4 14 A 10 10 0 0 1 24 14 L 24 24 L 20 20 L 16 24 L 12 20 L 8 24 L 4 20 Z" fill="#ff0000" />
+              <ellipse cx="9" cy="11" rx="3.5" ry="4.5" fill="#ffffff" />
+              <ellipse cx="19" cy="11" rx="3.5" ry="4.5" fill="#ffffff" />
+              <circle cx="${9 + ex}" cy="${11 + ey}" r="2" fill="#0000ff" />
+              <circle cx="${19 + ex}" cy="${11 + ey}" r="2" fill="#0000ff" />
+            </svg>
+          `;
+          this.cells[enemyKey].appendChild(gDiv);
+        }
+
+        const playerKey = `${this.player.x},${this.player.y}`;
+        if (this.cells[playerKey]) {
+          const pDiv = document.createElement('div');
+          pDiv.className = `entity player-pacman ${this.playerFacing}`;
+          pDiv.innerHTML = `
+            <div class="pacman-body">
+              <div class="pacman-mouth"></div>
+            </div>
+          `;
+          this.cells[playerKey].appendChild(pDiv);
+        }
+
+        this.stepCounter.textContent = `${this.stepCount} / ${this.MAX_STEPS}`;
+        this.rewardScore.textContent = this.cumulativeReward.toFixed(1);
+        this.headerReward.textContent = this.cumulativeReward.toFixed(1);
+
+        if (this.cumulativeReward > 0) this.rewardScore.className = 'metric-val reward-positive';
+        else if (this.cumulativeReward < 0) this.rewardScore.className = 'metric-val reward-negative';
+        else this.rewardScore.className = 'metric-val';
+
+        this.playerCoords.textContent = `[${this.player.x}, ${this.player.y}]`;
+        this.targetCoords.textContent = `[${this.target.x}, ${this.target.y}]`;
+      }
+
+      addLog(text, className = '') {
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${className}`;
+        entry.textContent = `> ${text}`;
+        this.logStream.prepend(entry);
+        while (this.logStream.children.length > 30) this.logStream.removeChild(this.logStream.lastChild);
+      }
+
+      showModal(type, title, message, willMorphOnNext = false) {
+        this.modalCard.className = `modal-card ${type}`;
+        this.modalTitle.textContent = title;
+        this.modalMessage.textContent = message;
+        this.modalSteps.textContent = this.stepCount;
+        this.modalReward.textContent = this.cumulativeReward.toFixed(1);
+        
+        const restartBtn = document.getElementById('modalRestartBtn');
+        restartBtn.textContent = willMorphOnNext ? "NEXT ROUND (NEW MAZE)" : "RETRY MAZE";
+        restartBtn.dataset.morph = willMorphOnNext ? "true" : "false";
+
+        this.outcomeModal.classList.add('active');
+      }
+
+      hideModal() { this.outcomeModal.classList.remove('active'); }
+
+      exportDataset() {
+        if (this.humanEpisodes.length === 0 && this.currentEpisodeBuffer.length === 0) {
+          alert("No human play episodes recorded yet! Play a few games with arrow keys first.");
+          return;
+        }
+
+        const exportData = [...this.humanEpisodes];
+        if (this.currentEpisodeBuffer.length > 0) {
+          exportData.push({
+            outcome: 'IN_PROGRESS',
+            reward: this.cumulativeReward,
+            steps: this.currentEpisodeBuffer
+          });
+        }
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "human_play_data.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+
+        this.addLog("EXPORTED human_play_data.json FOR AI TRAINING!", "log-success");
+      }
+
+      clearDataset() {
+        if (confirm("Are you sure you want to clear all recorded human demonstrations?")) {
+          this.humanEpisodes = [];
+          this.currentEpisodeBuffer = [];
+          localStorage.removeItem('pac2d_human_episodes');
+          this.updateRecorderStats();
+          this.addLog("RECORDED HUMAN DATA CLEARED", "log-step");
+        }
+      }
+
+      bindEvents() {
+        window.addEventListener('keydown', (e) => {
+          if (this.isAiMode || this.isGameOver) return;
+          if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { e.preventDefault(); this.step(3); }
+          else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); this.step(1); }
+          else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); this.step(2); }
+          else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { e.preventDefault(); this.step(4); }
+          else if (e.key === ' ') { e.preventDefault(); this.step(0); }
+        });
+
+        document.getElementById('btnUp').addEventListener('click', () => { if (!this.isAiMode && !this.isGameOver) this.step(3); });
+        document.getElementById('btnLeft').addEventListener('click', () => { if (!this.isAiMode && !this.isGameOver) this.step(1); });
+        document.getElementById('btnStay').addEventListener('click', () => { if (!this.isAiMode && !this.isGameOver) this.step(0); });
+        document.getElementById('btnRight').addEventListener('click', () => { if (!this.isAiMode && !this.isGameOver) this.step(2); });
+        document.getElementById('btnDown').addEventListener('click', () => { if (!this.isAiMode && !this.isGameOver) this.step(4); });
+
+        this.aiToggle.addEventListener('change', (e) => {
+          this.isAiMode = e.target.checked;
+          this.execBadge.textContent = this.isAiMode ? 'AI BOT' : 'MANUAL';
+          this.execBadge.style.color = this.isAiMode ? 'var(--arcade-green)' : 'var(--pac-yellow)';
+
+          if (this.isAiMode) {
+            this.addLog("AI AUTONOMOUS PATHFINDER ENGAGED", "log-ai");
+            if (!this.isGameOver) this.startSimulationLoop();
+          } else {
+            this.addLog("MANUAL D-PAD RESTORED // REC: ON", "log-step");
+            this.stopSimulationLoop();
+          }
+        });
+
+        this.btnPause.addEventListener('click', () => {
+          this.isPaused = !this.isPaused;
+          this.btnPause.textContent = this.isPaused ? '▶ RESUME' : '❚❚ PAUSE';
+          this.addLog(this.isPaused ? "SIMULATION PAUSED" : "SIMULATION RESUMED");
+        });
+
+        document.getElementById('btnRestartSim').addEventListener('click', () => this.resetGame(false));
+        document.getElementById('btnMorphNow').addEventListener('click', () => this.resetGame(true));
+
+        document.getElementById('modalRestartBtn').addEventListener('click', (e) => {
+          const shouldMorph = e.target.dataset.morph === "true";
+          this.resetGame(shouldMorph);
+        });
+
+        document.getElementById('btnExportData').addEventListener('click', () => this.exportDataset());
+        document.getElementById('btnClearData').addEventListener('click', () => this.clearDataset());
+
+        const soundEl = document.getElementById('soundStatus');
+        soundEl.addEventListener('click', () => {
+          this.sfx.enabled = !this.sfx.enabled;
+          soundEl.textContent = this.sfx.enabled ? 'SFX: ON' : 'SFX: OFF';
+          soundEl.style.color = this.sfx.enabled ? 'var(--arcade-green)' : 'var(--blinky-red)';
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      window.pac2DApp = new Pac2DGame();
+    });
+  </script>
+</body>
+</html>
