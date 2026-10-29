@@ -1,4 +1,4 @@
-# 👾 PAC-MAN 2D & ANTIGRAVITY: AI Reinforcement Learning & Imitation Lab
+# 👾 PAC-MAN 2D & AI GAMING: Reinforcement Learning & Imitation Lab
 
 A dual-mode Deep Reinforcement Learning (DRL) and Behavioral Cloning research platform built with **Gymnasium**, **PyTorch**, and **Stable-Baselines3 (PPO)**, paired with a modern, single-file retro **Pac-Man Arcade Web UI**.
 
@@ -17,7 +17,7 @@ This repository provides two complete AI training architectures and an interacti
    - Play manually in the browser using the D-Pad / Arrow keys.
    - Record exact state-action transitions to export `human_play_data.json`.
    - Pretrain a policy network with supervised imitation learning, followed by PPO fine-tuning.
-3. **Antigravity (Physics-Inverted Underactuated Grid Sandbox)**:
+3. **AI Physics Sandbox (Underactuated Grid Lab)**:
    - An experimental reinforcement learning benchmark where the player has **no vertical thrusters**.
    - Movement across the vertical axis requires riding a periodic, inverted external gravity vector ($\pm 1$) that reverses every 8 ticks.
 
